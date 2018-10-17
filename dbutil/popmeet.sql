@@ -51,11 +51,11 @@ CREATE TABLE IF NOT EXISTS `user_security` (
   `fk_login_provider` int(11) unsigned NULL,
   `hash` varchar(255) NULL,
   `last_machine` varchar(255) NOT NULL,
-  `token` varchar(255) NULL,
   `last_login_date` datetime DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  FOREIGN KEY (`fk_user`) REFERENCES user(`id`) ON UPDATE CASCADE ON DELETE RESTRICT
+  FOREIGN KEY (`fk_user`) REFERENCES user(`id`) ON UPDATE CASCADE ON DELETE RESTRICT,
+  FOREIGN KEY (`fk_login_provider`) REFERENCES login_provider(`id`) ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `language` (
@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS `users_profile_interests` (
 
 
 INSERT INTO language VALUES(null, 'English', 'EN', 'ENG');
+INSERT INTO login_provider VALUES(null, 'Api', 'CLIENTID-WEB', 'SECRET-WEB', 'CLIENTID-ANDROID', 'SECRET-ANDROID', 'CLIENTID-IPHONE', 'SECRET-IPHONE', NOW());
 INSERT INTO login_provider VALUES(null, 'Google', 'CLIENTID-WEB', 'SECRET-WEB', 'CLIENTID-ANDROID', 'SECRET-ANDROID', 'CLIENTID-IPHONE', 'SECRET-IPHONE', NOW());
 INSERT INTO interest VALUES(null, 'internet');
 INSERT INTO interest VALUES(null, 'cars');

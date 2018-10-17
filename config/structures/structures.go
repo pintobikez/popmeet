@@ -1,5 +1,10 @@
 package structures
 
+type SecurityConfig struct {
+	CipherKey string `yaml:"cipherkey"`
+	TTL       int    `yaml:"ttl"`
+}
+
 type DatabaseConfig struct {
 	Host   string `yaml:"host,omitempty"`
 	User   string `yaml:"user,omitempty"`

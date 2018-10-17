@@ -12,6 +12,7 @@ import (
 	er "github.com/pintobikez/popmeet/errors"
 	rep "github.com/pintobikez/popmeet/repository"
 	mysql "github.com/pintobikez/popmeet/repository/mysql"
+	"github.com/pintobikez/popmeet/secure"
 	"gopkg.in/urfave/cli.v1"
 	"io"
 	"net/http"
@@ -24,6 +25,7 @@ var (
 	repo        rep.Repository
 	corsGET     mw.CORSConfig
 	corsPUT     mw.CORSConfig
+	corsPOST    mw.CORSConfig
 	apiInterest *api.InterestApi
 	apiUser     *api.UserApi
 )
@@ -42,6 +44,11 @@ func init() {
 	corsPUT = mw.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowMethods: []string{echo.PUT, echo.OPTIONS, echo.HEAD},
+	}
+
+	corsPOST = mw.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{echo.POST, echo.OPTIONS, echo.HEAD},
 	}
 
 	apiInterest = new(api.InterestApi)
@@ -81,6 +88,14 @@ func Handler(c *cli.Context) error {
 	}
 	defer repo.Disconnect()
 
+	//loads security config
+	secCnf := &cnfs.SecurityConfig{}
+	err = uti.LoadConfigFile(c.String("security-file"), secCnf)
+	if err != nil {
+		e.Logger.Fatal(err)
+	}
+	securC := &secure.TokenManager{secCnf}
+
 	// Routes => healh
 	e.GET("/health", healthStatus(repo), mw.CORSWithConfig(corsGET))
 
@@ -92,6 +107,7 @@ func Handler(c *cli.Context) error {
 	// Routes => users api
 	apiUser.New(repo)
 	e.PUT("/user", apiUser.PutUser(), mw.CORSWithConfig(corsPUT))
+	e.POST("/user", apiUser.PostUser(), mw.CORSWithConfig(corsPOST))
 
 	// Start server
 	colorer := color.New()

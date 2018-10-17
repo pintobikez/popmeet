@@ -23,4 +23,5 @@ const (
 	ErrorInterestsNotFound   = 1002
 	ErrorUserNotFound        = 1003
 	ErrorUserProfileNotFound = 1004
+	ErrorCreatingToken       = 1005
 )
