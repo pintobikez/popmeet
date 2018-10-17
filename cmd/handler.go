@@ -21,7 +21,11 @@ import (
 )
 
 var (
-	repo rep.Repository
+	repo        rep.Repository
+	corsGET     mw.CORSConfig
+	corsPUT     mw.CORSConfig
+	apiInterest *api.InterestApi
+	apiUser     *api.UserApi
 )
 
 const (
@@ -29,11 +33,23 @@ const (
 	StatusUnavailable = "Unavailable"
 )
 
+func init() {
+	corsGET = mw.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{echo.GET, echo.OPTIONS, echo.HEAD},
+	}
+
+	corsPUT = mw.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{echo.PUT, echo.OPTIONS, echo.HEAD},
+	}
+
+	apiInterest = new(api.InterestApi)
+	apiUser = new(api.UserApi)
+}
+
 // Start Http Server
 func Handler(c *cli.Context) error {
-
-	//
-	apiInterest := new(api.InterestApi)
 
 	// Echo instance
 	e := echo.New()
@@ -65,22 +81,26 @@ func Handler(c *cli.Context) error {
 	}
 	defer repo.Disconnect()
 
-	corsGET := mw.CORSConfig{
-		AllowOrigins: []string{"*"},
-		AllowMethods: []string{echo.GET, echo.OPTIONS, echo.HEAD},
-	}
-
 	// Routes => healh
 	e.GET("/health", healthStatus(repo), mw.CORSWithConfig(corsGET))
 
 	// Routes => interests api
-	apiInterest.SetRepository(repo)
-	e.GET("/interest/all", apiInterest.GetAllInterest(), mw.CORSWithConfig(corsGET))
+	apiInterest.New(repo)
+	e.GET("/interest", apiInterest.GetAllInterest(), mw.CORSWithConfig(corsGET))
 	e.GET("/interest/:id", apiInterest.GetInterest(), mw.CORSWithConfig(corsGET))
+
+	// Routes => users api
+	apiUser.New(repo)
+	e.PUT("/user", apiUser.PutUser(), mw.CORSWithConfig(corsPUT))
 
 	// Start server
 	colorer := color.New()
 	colorer.Printf("⇛ %s service - %s\n", appName, color.Green(version))
+	//Print available routes
+	colorer.Printf("⇛ Available Routes:\n")
+	for _, rou := range e.Routes() {
+		colorer.Printf("⇛ URI: [%s] %s\n", color.Green(rou.Method), color.Green(rou.Path))
+	}
 
 	go func() {
 		if err := start(e, c); err != nil {

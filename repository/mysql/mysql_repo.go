@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
-	models "github.com/pintobikez/popmeet/api/structures"
+	"github.com/pintobikez/popmeet/api/models"
 	cnfs "github.com/pintobikez/popmeet/config/structures"
 	"strconv"
 )
@@ -16,6 +16,7 @@ const (
 type Client struct {
 	config *cnfs.DatabaseConfig
 	db     *sql.DB
+	tx     *sql.Tx
 }
 
 func New(cnfg *cnfs.DatabaseConfig) (*Client, error) {
@@ -46,8 +47,46 @@ func (r *Client) Disconnect() {
 	r.db.Close()
 }
 
+// InsertUser Creates a new record in the user table
+func (r *Client) InsertUser(u *models.User) error {
+	var err error
+	// start a transaction
+	r.tx, err = r.db.Begin()
+	if err != nil {
+		r.tx = nil
+		return err
+	}
+
+	stmt, err := r.tx.Prepare("INSERT INTO `user` VALUES (null,?,?,now(),now(),1)")
+	if err != nil {
+		return fmt.Errorf("Error in insert user prepared statement: %s", err.Error())
+	}
+
+	res, err := stmt.Exec(u.Name, u.Email)
+	defer stmt.Close()
+
+	if err != nil {
+		return fmt.Errorf("Error in insert user %s, email: %s %s", u.Name, u.Email, err.Error())
+	}
+
+	u.ID, _ = res.LastInsertId()
+	// INSERT SECURITY
+	err = r.InsertUserSecurity(u.Security, u.ID)
+	// Error inserting user security we rollback the whole user registration
+	if err != nil {
+		r.tx.Rollback()
+		r.tx = nil
+		return err
+	}
+
+	r.tx.Commit()
+	r.tx = nil
+
+	return nil
+}
+
 // FindUserById Find an User by a given id
-func (r *Client) FindUserById(id uint32) (*models.User, error) {
+func (r *Client) FindUserById(id int64) (*models.User, error) {
 	var found bool
 	resp := &models.User{}
 
@@ -69,9 +108,9 @@ func (r *Client) FindUserById(id uint32) (*models.User, error) {
 }
 
 // FindUserProfileByUserId Find the UserProfile by a given User id
-func (r *Client) FindUserProfileByUserId(id uint32) (*models.UserProfile, error) {
+func (r *Client) FindUserProfileByUserId(id int64) (*models.UserProfile, error) {
 	var found bool
-	var fkLanguage uint32
+	var fkLanguage int
 	resp := &models.UserProfile{}
 
 	err := r.db.QueryRow("SELECT IF(COUNT(*),'true','false') FROM user_profile WHERE fk_user=?", id).Scan(&found)
@@ -101,10 +140,47 @@ func (r *Client) FindUserProfileByUserId(id uint32) (*models.UserProfile, error)
 	return resp, nil
 }
 
+// InsertUserSecurity Creates a new record in the user_security table
+func (r *Client) InsertUserSecurity(u *models.UserSecurity, id int64) error {
+
+	var err error
+	var stmt *sql.Stmt
+
+	if r.tx != nil {
+		stmt, err = r.tx.Prepare("INSERT INTO `user_security` VALUES (null,?,?,?,?,null,now(),now())")
+	} else {
+		stmt, err = r.db.Prepare("INSERT INTO `user_security` VALUES (null,?,?,?,?,null,now(),now())")
+	}
+
+	if err != nil {
+		return fmt.Errorf("Error in insert user_security prepared statement: %s", err.Error())
+	}
+
+	var hash string
+	var lp int64
+
+	if u.Provider != nil {
+		lp = u.Provider.ID
+	}
+	if u.Hash != "" {
+		hash = u.Hash
+	}
+
+	res, err := stmt.Exec(id, lp, hash, u.LastMachine)
+	defer stmt.Close()
+
+	if err != nil {
+		return fmt.Errorf("Error in insert user_security for user id: %d", id, err.Error())
+	}
+	u.ID, _ = res.LastInsertId()
+
+	return nil
+}
+
 // FindSecurityInfoByUserId Find the UserSecurity by a given User id
-func (r *Client) FindSecurityInfoByUserId(id uint32) (*models.UserSecurity, error) {
+func (r *Client) FindSecurityInfoByUserId(id int64) (*models.UserSecurity, error) {
 	var found bool
-	var fkProvider uint32
+	var fkProvider int64
 	resp := &models.UserSecurity{}
 
 	err := r.db.QueryRow("SELECT IF(COUNT(*),'true','false') FROM user_security WHERE fk_user=?", id).Scan(&found)
@@ -116,8 +192,8 @@ func (r *Client) FindSecurityInfoByUserId(id uint32) (*models.UserSecurity, erro
 		return resp, fmt.Errorf("UserSecurity for user with id %d not found", id)
 	}
 
-	err = r.db.QueryRow("SELECT id,fk_login_provider,hashed_password,salt,last_machine,token,last_login_date,updated_at FROM user_security WHERE fk_user=?", id).
-		Scan(&resp.ID, &fkProvider, &resp.HashedPassword, &resp.Salt, &resp.LastMachine, &resp.Token, &resp.LastLogin, &resp.UpdatedAt)
+	err = r.db.QueryRow("SELECT id,fk_login_provider,hash,last_machine,token,last_login_date,updated_at FROM user_security WHERE fk_user=?", id).
+		Scan(&resp.ID, &fkProvider, &resp.Hash, &resp.LastMachine, &resp.Token, &resp.LastLogin, &resp.UpdatedAt)
 	if err != nil {
 		return resp, err
 	}
@@ -131,7 +207,7 @@ func (r *Client) FindSecurityInfoByUserId(id uint32) (*models.UserSecurity, erro
 }
 
 // FindInterestById Find an Interest by a given id
-func (r *Client) FindInterestById(id uint32) (*models.Interest, error) {
+func (r *Client) FindInterestById(id int64) (*models.Interest, error) {
 	var found bool
 	resp := &models.Interest{}
 
@@ -182,7 +258,7 @@ func (r *Client) GetAllInterests() ([]*models.Interest, error) {
 }
 
 // GetAllInterests Gets all interests
-func (r *Client) GetAllInterestByUserId(id uint32) ([]*models.Interest, error) {
+func (r *Client) GetAllInterestByUserId(id int64) ([]*models.Interest, error) {
 
 	var resp []*models.Interest
 
@@ -237,7 +313,7 @@ func (r *Client) GetAllLanguage() ([]*models.Language, error) {
 }
 
 // FindLanguageById Gets a Language by its Id
-func (r *Client) FindLanguageById(id uint32) (*models.Language, error) {
+func (r *Client) FindLanguageById(id int64) (*models.Language, error) {
 
 	var found bool
 	resp := &models.Language{}
@@ -289,7 +365,7 @@ func (r *Client) GetAllLoginProvider() ([]*models.LoginProvider, error) {
 }
 
 // FindLoginProviderById Gets a LoginProvider by its Id
-func (r *Client) FindLoginProviderById(id uint32) (*models.LoginProvider, error) {
+func (r *Client) FindLoginProviderById(id int64) (*models.LoginProvider, error) {
 
 	var found bool
 	resp := &models.LoginProvider{}
@@ -300,6 +376,7 @@ func (r *Client) FindLoginProviderById(id uint32) (*models.LoginProvider, error)
 	}
 
 	if !found {
+		resp.ID = -1
 		return resp, fmt.Errorf("Login Provider with id %d not found", id)
 	}
 

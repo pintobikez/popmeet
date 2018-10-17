@@ -1,24 +1,26 @@
 package repository
 
-import models "github.com/pintobikez/popmeet/api/structures"
+import "github.com/pintobikez/popmeet/api/models"
 
 type Repository interface {
 	Connect() error
 	Disconnect()
 	Health() error
 	// Interest methods
-	FindInterestById(id uint32) (*models.Interest, error)
-	GetAllInterestByUserId(id uint32) ([]*models.Interest, error)
+	FindInterestById(id int64) (*models.Interest, error)
+	GetAllInterestByUserId(id int64) ([]*models.Interest, error)
 	GetAllInterests() ([]*models.Interest, error)
 	// User methods
-	FindUserById(id uint32) (*models.User, error)
-	FindUserProfileByUserId(id uint32) (*models.UserProfile, error)
+	InsertUser(u *models.User) error
+	FindUserById(id int64) (*models.User, error)
+	FindUserProfileByUserId(id int64) (*models.UserProfile, error)
 	// Languages
-	FindLanguageById(uint32 id) (*models.Language, error)
+	FindLanguageById(id int64) (*models.Language, error)
 	GetAllLanguage() ([]*models.Language, error)
 	// UserSecurity
-	FindSecurityInfoByUserId(uint32 id) (*models.UserSecurity, error)
+	InsertUserSecurity(u *models.UserSecurity, id int64) error
+	FindSecurityInfoByUserId(id int64) (*models.UserSecurity, error)
 	// LoginProvider
-	FindLoginProviderById(uint32 id) (*models.LoginProvider, error)
+	FindLoginProviderById(id int64) (*models.LoginProvider, error)
 	GetAllLoginProvider() ([]*models.LoginProvider, error)
 }

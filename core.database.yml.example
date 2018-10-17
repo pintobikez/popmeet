@@ -1,0 +1,5 @@
+host: "localhost"
+user: "pinto"
+pw: "pinto"
+port: 3306
+schema: popmeet

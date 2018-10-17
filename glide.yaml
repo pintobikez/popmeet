@@ -20,5 +20,5 @@ import:
   subpackages:
     - log
     - color
-- package: golang.org/x/crypto/acme/autocert
+- package: golang.org/x/crypto/bcrypt
 - package: gopkg.in/go-playground/validator.v9

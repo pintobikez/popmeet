@@ -12,6 +12,10 @@ type InterestApi struct {
 	rp repo.Repository
 }
 
+func (a *InterestApi) New(rpo repo.Repository) {
+	a.rp = rpo
+}
+
 func (a *InterestApi) SetRepository(rpo repo.Repository) {
 	a.rp = rpo
 }
@@ -20,7 +24,7 @@ func (a *InterestApi) SetRepository(rpo repo.Repository) {
 func (a *InterestApi) GetInterest() echo.HandlerFunc {
 	return func(c echo.Context) error {
 
-		id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, &er.ErrResponse{er.ErrContent{http.StatusBadRequest, err.Error()}})
 		}
