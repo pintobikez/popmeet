@@ -27,8 +27,10 @@ var (
 	corsGET     mw.CORSConfig
 	corsPUT     mw.CORSConfig
 	corsPOST    mw.CORSConfig
+	corsDEL     mw.CORSConfig
 	apiInterest *api.InterestApi
 	apiUser     *api.UserApi
+	apiEvent    *api.EventApi
 )
 
 const (
@@ -52,8 +54,14 @@ func init() {
 		AllowMethods: []string{echo.POST, echo.OPTIONS, echo.HEAD},
 	}
 
+	corsDEL = mw.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{echo.DELETE, echo.OPTIONS, echo.HEAD},
+	}
+
 	apiInterest = new(api.InterestApi)
 	apiUser = new(api.UserApi)
+	apiEvent = new(api.EventApi)
 }
 
 // Start Http Server
@@ -110,6 +118,13 @@ func Handler(c *cli.Context) error {
 	e.PUT("/register", apiUser.PutUser(), mw.CORSWithConfig(corsPUT))
 	e.POST("/user", apiUser.PostUser(), mwl.Authorization(tknm), mw.CORSWithConfig(corsPOST))
 	e.POST("/login", apiUser.LoginUser(), mw.CORSWithConfig(corsPOST))
+
+	// Routes => events api
+	apiEvent.New(repo)
+	e.PUT("/event", apiEvent.PutEvent(), mwl.Authorization(tknm), mw.CORSWithConfig(corsPUT))
+	e.GET("/event/:id", apiEvent.GetEvent(), mwl.Authorization(tknm), mw.CORSWithConfig(corsGET))
+	e.PUT("/event/:id/user", apiEvent.AddUserToEvent(), mwl.Authorization(tknm), mw.CORSWithConfig(corsPUT))
+	e.DELETE("/event/:id/user", apiEvent.RemoveUserFromEvent(), mwl.Authorization(tknm), mw.CORSWithConfig(corsDEL))
 
 	// Start server
 	colorer := color.New()

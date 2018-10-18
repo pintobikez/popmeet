@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS `event` (
   `start_datetime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `end_datetime` datetime NOT NULL,
   `location` varchar(255) NOT NULL,
-  `is_finished` tinyint(1) NOT NULL DEFAULT 0,
+  `active` tinyint(1) NOT NULL DEFAULT 1,
   `fk_created_by` int(11) unsigned NOT NULL,
   PRIMARY KEY (`id`),
   FOREIGN KEY (`fk_created_by`) REFERENCES user(`id`) ON UPDATE CASCADE ON DELETE RESTRICT
@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS `event_users` (
   `fk_event` int(11) unsigned NOT NULL,
   `fk_user` int(11) unsigned NOT NULL,
   FOREIGN KEY (`fk_event`) REFERENCES event(`id`) ON UPDATE CASCADE ON DELETE RESTRICT,
-  FOREIGN KEY (`fk_user`) REFERENCES user(`id`) ON UPDATE CASCADE ON DELETE RESTRICT
+  FOREIGN KEY (`fk_user`) REFERENCES user(`id`) ON UPDATE CASCADE ON DELETE RESTRICT,
+  UNIQUE KEY unique_keys (fk_event,fk_user)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `login_provider` (

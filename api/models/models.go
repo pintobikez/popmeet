@@ -16,7 +16,7 @@ type NewUser struct {
 type NewEvent struct {
 	StartDate string `json:"start_date" validate:"required"`
 	EndDate   string `json:"end_date" validate:"required"`
-	Location  string `json:"name" validate:"required,alpha,min=1,max=255"`
+	Location  string `json:"location" validate:"required,alpha,min=1,max=255"`
 	Active    bool   `json:"active" validate:"required"`
 	CreatedBy int64  `json:"created_by validate:"required,numeric"`
 }

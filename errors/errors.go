@@ -24,4 +24,6 @@ const (
 	ErrorUserNotFound        = 1003
 	ErrorUserProfileNotFound = 1004
 	ErrorCreatingToken       = 1005
+	ErrorEventNotFound       = 1006
+	ErrorCantAddUSerToEvent  = 1007
 )

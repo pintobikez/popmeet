@@ -40,18 +40,18 @@ func (a *UserApi) GetUser() echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, &er.ErrResponse{er.ErrContent{http.StatusBadRequest, err.Error()}})
 		}
 
-		// Find the user
-		resp, err := a.rp.FindUserById(id)
+		// Get the user
+		resp, err := a.rp.GetUserById(id)
 		if err != nil {
 			return c.JSON(http.StatusNotFound, &er.ErrResponse{er.ErrContent{er.ErrorUserNotFound, err.Error()}})
 		}
-		// Find the user profile
-		resp.Profile, err = a.rp.FindUserProfileByUserId(resp.ID)
+		// Get the user profile
+		resp.Profile, err = a.rp.GetUserProfileByUserId(resp.ID)
 		if err != nil {
 			return c.JSON(http.StatusNotFound, &er.ErrResponse{er.ErrContent{er.ErrorUserProfileNotFound, err.Error()}})
 		}
-		// Find the user security
-		resp.Security, err = a.rp.FindSecurityInfoByUserId(resp.ID)
+		// Get the user security
+		resp.Security, err = a.rp.GetSecurityInfoByUserId(resp.ID)
 		if err != nil {
 			return c.JSON(http.StatusNotFound, &er.ErrResponse{er.ErrContent{er.ErrorUserProfileNotFound, err.Error()}})
 		}
@@ -74,28 +74,7 @@ func (a *UserApi) PutUser() echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, &er.ErrResponse{er.ErrContent{http.StatusBadRequest, err.Error()}})
 		}
 
-		// Check if the email already exists
-		if _, err := a.rp.FindUserByEmail(u.Email); err == nil {
-			return c.JSON(http.StatusConflict, &er.ErrResponse{er.ErrContent{http.StatusConflict, "Duplicated email"}})
-		}
-
-		if u.Password == "" && u.Provider == ApiLoginProvider {
-			return c.JSON(http.StatusBadRequest, &er.ErrResponse{er.ErrContent{http.StatusBadRequest, "A password must be provided"}})
-		}
-
 		ur := &models.User{Name: u.Name, Email: u.Email, Active: true, Security: &models.UserSecurity{LastMachine: c.RealIP()}}
-
-		// Hash the password
-		if u.Password != "" {
-			ur.Security.Hash, err = a.hashPassword(u.Password)
-			if err != nil {
-				return c.JSON(http.StatusInternalServerError, &er.ErrResponse{er.ErrContent{http.StatusInternalServerError, err.Error()}})
-			}
-		}
-		// Find the login provider
-		if ur.Security.Provider, err = a.rp.FindLoginProviderById(u.Provider); err != nil {
-			return c.JSON(http.StatusBadRequest, &er.ErrResponse{er.ErrContent{http.StatusBadRequest, err.Error()}})
-		}
 
 		err = a.rp.InsertUser(ur)
 		if err != nil {
@@ -103,12 +82,12 @@ func (a *UserApi) PutUser() echo.HandlerFunc {
 		}
 
 		// Get all user information
-		ur, err = a.rp.FindUserById(ur.ID)
+		ur, err = a.rp.GetUserById(ur.ID)
 		if err != nil {
 			return c.JSON(http.StatusNotFound, &er.ErrResponse{er.ErrContent{er.ErrorUserNotFound, err.Error()}})
 		}
 		// Get the user security
-		ur.Security, err = a.rp.FindSecurityInfoByUserId(ur.ID)
+		ur.Security, err = a.rp.GetSecurityInfoByUserId(ur.ID)
 		if err != nil {
 			return c.JSON(http.StatusNotFound, &er.ErrResponse{er.ErrContent{er.ErrorUserProfileNotFound, err.Error()}})
 		}
@@ -150,16 +129,16 @@ func (a *UserApi) LoginUser() echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, &er.ErrResponse{er.ErrContent{http.StatusBadRequest, err.Error()}})
 		}
 
-		// Find the user
-		resp, err := a.rp.FindUserByEmail(u.Email)
+		// Get the user
+		resp, err := a.rp.GetUserByEmail(u.Email)
 		if err != nil {
 			return c.JSON(http.StatusUnauthorized, &er.ErrResponse{er.ErrContent{http.StatusUnauthorized, "Invalid credentials"}})
 		}
-		// Find the user profile
-		resp.Profile, _ = a.rp.FindUserProfileByUserId(resp.ID)
+		// Get the user profile
+		resp.Profile, _ = a.rp.GetUserProfileByUserId(resp.ID)
 
-		// Find the user security
-		resp.Security, err = a.rp.FindSecurityInfoByUserId(resp.ID)
+		// Get the user security
+		resp.Security, err = a.rp.GetSecurityInfoByUserId(resp.ID)
 		if err != nil {
 			return c.JSON(http.StatusNotFound, &er.ErrResponse{er.ErrContent{er.ErrorUserProfileNotFound, err.Error()}})
 		}

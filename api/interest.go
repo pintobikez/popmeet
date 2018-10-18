@@ -29,7 +29,7 @@ func (a *InterestApi) GetInterest() echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, &er.ErrResponse{er.ErrContent{http.StatusBadRequest, err.Error()}})
 		}
 
-		resp, err := a.rp.FindInterestById(id)
+		resp, err := a.rp.GetInterestById(id)
 
 		if err != nil {
 			return c.JSON(http.StatusNotFound, &er.ErrResponse{er.ErrContent{er.ErrorInterestNotFound, err.Error()}})
