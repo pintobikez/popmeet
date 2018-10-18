@@ -31,12 +31,12 @@ func (a *EventApi) GetEvent() echo.HandlerFunc {
 
 		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, &er.ErrResponse{er.ErrContent{http.StatusBadRequest, err.Error()}})
+			return c.JSON(http.StatusBadRequest, er.GeneralErrorJson(http.StatusBadRequest, err.Error()))
 		}
 
 		resp, err := a.rp.GetEventById(id)
 		if err != nil {
-			return c.JSON(http.StatusNotFound, &er.ErrResponse{er.ErrContent{er.ErrorEventNotFound, err.Error()}})
+			return c.JSON(http.StatusNotFound, er.GeneralErrorJson(er.ErrorEventNotFound, err.Error()))
 		}
 
 		return c.JSON(http.StatusOK, resp)
@@ -49,33 +49,32 @@ func (a *EventApi) PutEvent() echo.HandlerFunc {
 
 		u := new(models.NewEvent)
 		if err := c.Bind(u); err != nil {
-			return c.JSON(http.StatusBadRequest, &er.ErrResponse{er.ErrContent{http.StatusBadRequest, err.Error()}})
+			return c.JSON(http.StatusBadRequest, er.GeneralErrorJson(http.StatusBadRequest, err.Error()))
 		}
 
 		if err := a.validate.Struct(u); err != nil {
-			return c.JSON(http.StatusBadRequest, &er.ErrResponse{er.ErrContent{http.StatusBadRequest, err.Error()}})
+			return c.JSON(http.StatusUnprocessableEntity, er.ValidationErrorJson(http.StatusUnprocessableEntity, err))
 		}
 
 		cl := c.Get("claims").(*stru.TokenClaims)
-
 		// Get the user by the claim ID
 		ur, err := a.rp.GetUserById(cl.ID)
 		if err != nil {
-			return c.JSON(http.StatusNotFound, &er.ErrResponse{er.ErrContent{er.ErrorUserNotFound, err.Error()}})
+			return c.JSON(http.StatusNotFound, er.GeneralErrorJson(er.ErrorUserNotFound, err.Error()))
 		}
 
-		ev := &models.Event{StartDate: u.StartDate, EndDate: u.EndDate, Location: u.Location, Active: u.Active, CreatedBy: ur}
+		ev := &models.Event{StartDate: u.StartDate, EndDate: u.EndDate, Location: u.Location, Longitude: u.Longitude, Latitude: u.Latitude, Active: u.Active, CreatedBy: ur}
 
 		//Save the event
 		err = a.rp.InsertEvent(ev)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, &er.ErrResponse{er.ErrContent{http.StatusInternalServerError, err.Error()}})
+			return c.JSON(http.StatusInternalServerError, er.GeneralErrorJson(http.StatusInternalServerError, err.Error()))
 		}
 
 		//Get the complete info from the event to return it
 		ev, err = a.rp.GetEventById(ev.ID)
 		if err != nil {
-			return c.JSON(http.StatusNotFound, &er.ErrResponse{er.ErrContent{er.ErrorEventNotFound, err.Error()}})
+			return c.JSON(http.StatusNotFound, er.GeneralErrorJson(er.ErrorEventNotFound, err.Error()))
 		}
 
 		return c.JSON(http.StatusOK, ev)
@@ -89,7 +88,7 @@ func (a *EventApi) AddUserToEvent() echo.HandlerFunc {
 		// gets the event id
 		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, &er.ErrResponse{er.ErrContent{http.StatusBadRequest, err.Error()}})
+			return c.JSON(http.StatusBadRequest, er.GeneralErrorJson(http.StatusBadRequest, err.Error()))
 		}
 
 		// Get the user by the claim ID
@@ -98,28 +97,28 @@ func (a *EventApi) AddUserToEvent() echo.HandlerFunc {
 		//Check if the event exists and its active
 		ex, err := a.rp.FindEventById(id)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, &er.ErrResponse{er.ErrContent{http.StatusInternalServerError, err.Error()}})
+			return c.JSON(http.StatusInternalServerError, er.GeneralErrorJson(http.StatusInternalServerError, err.Error()))
 		}
 		if !ex {
-			return c.JSON(http.StatusNotFound, &er.ErrResponse{er.ErrContent{er.ErrorEventNotFound, "Event doesn't exist"}})
+			return c.JSON(http.StatusNotFound, er.GeneralErrorJson(er.ErrorEventNotFound, "Event doesn't exist"))
 		}
 
 		//Check if the user exists and its active
 		ex, err = a.rp.FindUserById(cl.ID)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, &er.ErrResponse{er.ErrContent{http.StatusInternalServerError, err.Error()}})
+			return c.JSON(http.StatusInternalServerError, er.GeneralErrorJson(http.StatusInternalServerError, err.Error()))
 		}
 		if !ex {
-			return c.JSON(http.StatusNotFound, &er.ErrResponse{er.ErrContent{er.ErrorUserNotFound, "User doesn't exist"}})
+			return c.JSON(http.StatusNotFound, er.GeneralErrorJson(er.ErrorUserNotFound, "User doesn't exist"))
 		}
 
 		//Add the user to the event
 		err = a.rp.AddUserToEvent(id, cl.ID)
 		if err != nil {
 			if err.Error() == strconv.Itoa(er.ErrorCantAddUSerToEvent) {
-				return c.JSON(http.StatusBadRequest, &er.ErrResponse{er.ErrContent{er.ErrorCantAddUSerToEvent, "Can't add creator as user"}})
+				return c.JSON(http.StatusBadRequest, er.GeneralErrorJson(er.ErrorCantAddUSerToEvent, "Can't add creator as user"))
 			}
-			return c.JSON(http.StatusInternalServerError, &er.ErrResponse{er.ErrContent{http.StatusInternalServerError, err.Error()}})
+			return c.JSON(http.StatusInternalServerError, er.GeneralErrorJson(http.StatusInternalServerError, err.Error()))
 		}
 
 		return c.NoContent(http.StatusOK)
@@ -133,7 +132,7 @@ func (a *EventApi) RemoveUserFromEvent() echo.HandlerFunc {
 		// gets the event id
 		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, &er.ErrResponse{er.ErrContent{http.StatusBadRequest, err.Error()}})
+			return c.JSON(http.StatusBadRequest, er.GeneralErrorJson(http.StatusBadRequest, err.Error()))
 		}
 
 		// Get the user by the claim ID
@@ -142,26 +141,34 @@ func (a *EventApi) RemoveUserFromEvent() echo.HandlerFunc {
 		//Check if the event exists and its active
 		ex, err := a.rp.FindEventById(id)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, &er.ErrResponse{er.ErrContent{http.StatusInternalServerError, err.Error()}})
+			return c.JSON(http.StatusInternalServerError, er.GeneralErrorJson(http.StatusInternalServerError, err.Error()))
 		}
 		if !ex {
-			return c.JSON(http.StatusNotFound, &er.ErrResponse{er.ErrContent{er.ErrorEventNotFound, "Event doesn't exist"}})
+			return c.JSON(http.StatusNotFound, er.GeneralErrorJson(er.ErrorEventNotFound, "Event doesn't exist"))
 		}
 
 		//Check if the user exists and its active
 		ex, err = a.rp.FindUserById(cl.ID)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, &er.ErrResponse{er.ErrContent{http.StatusInternalServerError, err.Error()}})
+			return c.JSON(http.StatusInternalServerError, er.GeneralErrorJson(http.StatusInternalServerError, err.Error()))
 		}
 		if !ex {
-			return c.JSON(http.StatusNotFound, &er.ErrResponse{er.ErrContent{er.ErrorUserNotFound, "User doesn't exist"}})
+			return c.JSON(http.StatusNotFound, er.GeneralErrorJson(er.ErrorUserNotFound, "User doesn't exist"))
 		}
 
 		//Remove the user from the event
 		err = a.rp.RemoveUserFromEvent(id, cl.ID)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, &er.ErrResponse{er.ErrContent{http.StatusInternalServerError, err.Error()}})
+			return c.JSON(http.StatusInternalServerError, er.GeneralErrorJson(http.StatusInternalServerError, err.Error()))
 		}
+
+		return c.NoContent(http.StatusOK)
+	}
+}
+
+// FindEvents Handler to find Events by given search parameters
+func (a *EventApi) FindEvents() echo.HandlerFunc {
+	return func(c echo.Context) error {
 
 		return c.NoContent(http.StatusOK)
 	}

@@ -17,6 +17,7 @@ type Repository interface {
 	UpdateUser(u *models.User) error
 	GetUserById(id int64) (*models.User, error)
 	FindUserById(id int64) (bool, error)
+	FindUserByEmail(email string) (bool, error)
 	GetUserByEmail(email string) (*models.User, error)
 	// User profile methods
 	InsertUserProfile(u *models.UserProfile, id int64) error

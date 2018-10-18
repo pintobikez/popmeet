@@ -97,8 +97,10 @@ func (r *Client) UpdateUser(u *models.User) error {
 		return fmt.Errorf("Error in update user prepared statement: %s", err.Error())
 	}
 
-	_, err = stmt.Exec(u.Name, u.Email, u.ID)
+	_, err = stmt.Exec(u.Email, u.Name, u.ID)
 	defer stmt.Close()
+
+	fmt.Printf("%v", u.Profile)
 
 	if err != nil {
 		return fmt.Errorf("Could not update userID %d : %s", u.ID, err.Error())
@@ -112,15 +114,23 @@ func (r *Client) UpdateUser(u *models.User) error {
 	}
 	// UPDATE PROFILE
 	if u.Profile != nil && u.Profile.ID > 0 {
+		if u.Profile.Interests == nil {
+			u.Profile.Interests = []*models.Interest{}
+		}
 		if err = r.UpdateUserProfile(u.Profile); err != nil {
 			return err
 		}
 	}
 	if u.Profile != nil && u.Profile.ID <= 0 {
+		if u.Profile.Interests == nil {
+			u.Profile.Interests = []*models.Interest{}
+		}
 		if err = r.InsertUserProfile(u.Profile, u.ID); err != nil {
 			return err
 		}
 	}
+
+	r.commit()
 
 	return nil
 }
@@ -152,7 +162,7 @@ func (r *Client) GetUserByEmail(email string) (*models.User, error) {
 	var found bool
 	resp := &models.User{}
 
-	err := r.db.QueryRow("SELECT IF(COUNT(*),'true','false') FROM user WHERE email=? and active=1", email).Scan(&found)
+	err := r.db.QueryRow("SELECT IF(COUNT(*),'true','false') FROM user WHERE email=?", email).Scan(&found)
 	if err != nil {
 		return resp, err
 	}
@@ -167,6 +177,18 @@ func (r *Client) GetUserByEmail(email string) (*models.User, error) {
 	}
 
 	return resp, nil
+}
+
+// FindUserByEmail Checks if a given email exist
+func (r *Client) FindUserByEmail(email string) (bool, error) {
+	var found bool
+
+	err := r.db.QueryRow("SELECT IF(COUNT(*),'true','false') FROM user WHERE email=? and active=1", email).Scan(&found)
+	if err != nil {
+		return false, err
+	}
+
+	return found, nil
 }
 
 // FindUserById Check if the user exists and its active
@@ -220,12 +242,12 @@ func (r *Client) UpdateUserProfile(u *models.UserProfile) error {
 	var stmt *sql.Stmt
 
 	if r.tx != nil {
-		stmt, err = r.tx.Prepare("UPDATE `user_profile` SET language=?,sex=?,age_range=?,updated_at=now() WHERE id=?")
+		stmt, err = r.tx.Prepare("UPDATE `user_profile` SET fk_language=?,sex=?,age_range=?,updated_at=now() WHERE id=?")
 	} else {
-		stmt, err = r.db.Prepare("UPDATE `user_profile` SET language=?,sex=?,age_range=?,updated_at=now() WHERE id=?")
+		stmt, err = r.db.Prepare("UPDATE `user_profile` SET fk_language=?,sex=?,age_range=?,updated_at=now() WHERE id=?")
 	}
 
-	_, err = stmt.Exec(u.Language.ID, u.Sex, u.AgeRange)
+	_, err = stmt.Exec(u.Language.ID, u.Sex, u.AgeRange, u.ID)
 	defer stmt.Close()
 
 	if err != nil {
@@ -243,7 +265,7 @@ func (r *Client) UpdateUserProfile(u *models.UserProfile) error {
 // GetUserProfileByUserId Get the UserProfile by a given User id
 func (r *Client) GetUserProfileByUserId(id int64) (*models.UserProfile, error) {
 	var found bool
-	var fkLanguage int
+	var fkLanguage int64
 	resp := &models.UserProfile{}
 
 	err := r.db.QueryRow("SELECT IF(COUNT(*),'true','false') FROM user_profile WHERE fk_user=?", id).Scan(&found)
@@ -255,12 +277,12 @@ func (r *Client) GetUserProfileByUserId(id int64) (*models.UserProfile, error) {
 		return resp, fmt.Errorf("UserProfile for user with id %d not found", id)
 	}
 
-	err = r.db.QueryRow("SELECT id,fk_language,age_range,sex,updated_at FROM user WHERE fk_user=?", id).Scan(&resp.ID, &fkLanguage, &resp.AgeRange, &resp.Sex, &resp.UpdatedAt)
+	err = r.db.QueryRow("SELECT id,fk_language,age_range,sex,updated_at FROM user_profile WHERE fk_user=?", id).Scan(&resp.ID, &fkLanguage, &resp.AgeRange, &resp.Sex, &resp.UpdatedAt)
 	if err != nil {
 		return resp, err
 	}
 
-	resp.Language, err = r.GetLanguageById(resp.ID)
+	resp.Language, err = r.GetLanguageById(fkLanguage)
 	if err != nil {
 		return resp, err
 	}
@@ -442,10 +464,10 @@ func (r *Client) UpdateUserInterests(interests []*models.Interest, id int64) err
 	var stmti *sql.Stmt
 
 	if r.tx != nil {
-		stmtd, err = r.tx.Prepare("DELETE FROM `users_profile_interests` WHERE fk_user=?")
+		stmtd, err = r.tx.Prepare("DELETE FROM `users_profile_interests` WHERE fk_user_profile=?")
 		stmti, err = r.tx.Prepare("INSERT INTO `users_profile_interests` VALUES (?,?)")
 	} else {
-		stmtd, err = r.db.Prepare("DELETE FROM `users_profile_interests` WHERE fk_user=?")
+		stmtd, err = r.db.Prepare("DELETE FROM `users_profile_interests` WHERE fk_user_profile=?")
 		stmti, err = r.db.Prepare("INSERT INTO `users_profile_interests` VALUES (?,?)")
 	}
 
@@ -466,8 +488,8 @@ func (r *Client) UpdateUserInterests(interests []*models.Interest, id int64) err
 			if err != nil {
 				return fmt.Errorf("Error in inserting user interests for userID %d : %s", id, err.Error())
 			}
-			stmti.Close()
 		}
+		stmti.Close()
 	}
 
 	return nil
@@ -607,21 +629,21 @@ func (r *Client) GetLoginProviderById(id int64) (*models.LoginProvider, error) {
 }
 
 // InsertEvent Inserts and event into event table
-func (r *Client) InsertEvent(e *models.Event) error {
+func (r *Client) InsertEvent(ev *models.Event) error {
 
-	stmt, err := r.db.Prepare("INSERT INTO `event` VALUES (null,now(),?,?,?,?,?)")
+	stmt, err := r.db.Prepare("INSERT INTO `event` VALUES (null,now(),?,?,?,?,?,?,?)")
 	if err != nil {
 		return fmt.Errorf("Error in insert event prepared statement: %s", err.Error())
 	}
 
-	res, err := stmt.Exec(e.StartDate, e.EndDate, e.Location, e.Active, e.CreatedBy.ID)
+	res, err := stmt.Exec(ev.StartDate, ev.EndDate, ev.Location, ev.Latitude, ev.Longitude, ev.Active, ev.CreatedBy.ID)
 	defer stmt.Close()
 
 	if err != nil {
-		return fmt.Errorf("Error in insert event for user id %d", e.CreatedBy.ID, err.Error())
+		return fmt.Errorf("Error in insert event for user id %d", ev.CreatedBy.ID, err.Error())
 	}
 
-	e.ID, _ = res.LastInsertId()
+	ev.ID, _ = res.LastInsertId()
 
 	return nil
 }
@@ -629,12 +651,12 @@ func (r *Client) InsertEvent(e *models.Event) error {
 // UpdateEvent Update the given event in event table
 func (r *Client) UpdateEvent(ev *models.Event) error {
 
-	stmt, err := r.tx.Prepare("UPDATE `event` SET location=?,start_datetime=?,end_datetime=?,active=? WHERE id=?")
+	stmt, err := r.tx.Prepare("UPDATE `event` SET location=?,latitude=?,longitude=?,start_datetime=?,end_datetime=?,active=? WHERE id=?")
 	if err != nil {
 		return fmt.Errorf("Error in update user prepared statement: %s", err.Error())
 	}
 
-	_, err = stmt.Exec(ev.Location, ev.StartDate, ev.EndDate, ev.StartDate, ev.Active, ev.ID)
+	_, err = stmt.Exec(ev.Location, ev.Latitude, ev.Longitude, ev.StartDate, ev.EndDate, ev.StartDate, ev.Active, ev.ID)
 	defer stmt.Close()
 
 	if err != nil {
@@ -660,8 +682,8 @@ func (r *Client) GetEventById(id int64) (*models.Event, error) {
 		return ev, fmt.Errorf("Event with id %d not found", id)
 	}
 
-	err = r.db.QueryRow("SELECT id,created_at,start_datetime,end_datetime,location,active,fk_created_by FROM event WHERE id=?", id).
-		Scan(&ev.ID, &ev.CreatedAt, &ev.StartDate, &ev.EndDate, &ev.Location, &ev.Active, &fkCreatedBy)
+	err = r.db.QueryRow("SELECT id,created_at,start_datetime,end_datetime,location,latitude,longitude,active,fk_created_by FROM event WHERE id=?", id).
+		Scan(&ev.ID, &ev.CreatedAt, &ev.StartDate, &ev.EndDate, &ev.Location, &ev.Latitude, &ev.Longitude, &ev.Active, &fkCreatedBy)
 	if err != nil {
 		return ev, err
 	}
@@ -713,7 +735,7 @@ func (r *Client) GetUserEventsByUserId(id int64) ([]*models.Event, error) {
 
 	var evs []*models.Event
 
-	rows, err := r.db.Query("SELECT id,created_at,start_datetime,end_datetime,location,active FROM event WHERE fk_created_by=?", id)
+	rows, err := r.db.Query("SELECT id,created_at,start_datetime,end_datetime,location,latitude,longitude,active FROM event WHERE fk_created_by=?", id)
 	if err != nil {
 		return evs, err
 	}
@@ -722,7 +744,7 @@ func (r *Client) GetUserEventsByUserId(id int64) ([]*models.Event, error) {
 	for rows.Next() {
 		var ev = new(models.Event)
 
-		err = rows.Scan(&ev.ID, &ev.CreatedAt, &ev.StartDate, &ev.EndDate, &ev.Location, &ev.Active)
+		err = rows.Scan(&ev.ID, &ev.CreatedAt, &ev.StartDate, &ev.EndDate, &ev.Location, &ev.Latitude, &ev.Longitude, &ev.Active)
 		if err != nil {
 			defer rows.Close()
 			return evs, fmt.Errorf("Error reading rows: %s", err.Error())

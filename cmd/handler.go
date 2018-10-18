@@ -197,7 +197,7 @@ func serverErrorHandler(err error, c echo.Context) {
 		if c.Request().Method == echo.HEAD {
 			c.NoContent(code)
 		} else {
-			c.JSON(code, &er.ErrResponse{er.ErrContent{code, msg}})
+			c.JSON(code, er.GeneralErrorJson(code, msg))
 		}
 	}
 }

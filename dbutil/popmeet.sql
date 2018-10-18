@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS `event` (
   `start_datetime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `end_datetime` datetime NOT NULL,
   `location` varchar(255) NOT NULL,
+  `latitude` varchar(32) NOT NULL,
+  `longitude` varchar(32) NOT NULL,
   `active` tinyint(1) NOT NULL DEFAULT 1,
   `fk_created_by` int(11) unsigned NOT NULL,
   PRIMARY KEY (`id`),

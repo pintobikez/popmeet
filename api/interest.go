@@ -26,13 +26,13 @@ func (a *InterestApi) GetInterest() echo.HandlerFunc {
 
 		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, &er.ErrResponse{er.ErrContent{http.StatusBadRequest, err.Error()}})
+			return c.JSON(http.StatusBadRequest, er.GeneralErrorJson(http.StatusBadRequest, err.Error()))
 		}
 
 		resp, err := a.rp.GetInterestById(id)
 
 		if err != nil {
-			return c.JSON(http.StatusNotFound, &er.ErrResponse{er.ErrContent{er.ErrorInterestNotFound, err.Error()}})
+			return c.JSON(http.StatusNotFound, er.GeneralErrorJson(er.ErrorInterestNotFound, err.Error()))
 		}
 
 		return c.JSON(http.StatusOK, resp)
@@ -45,7 +45,7 @@ func (a *InterestApi) GetAllInterest() echo.HandlerFunc {
 
 		resp, err := a.rp.GetAllInterests()
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, &er.ErrResponse{er.ErrContent{er.ErrorInterestsNotFound, err.Error()}})
+			return c.JSON(http.StatusInternalServerError, er.GeneralErrorJson(er.ErrorInterestsNotFound, err.Error()))
 		}
 
 		return c.JSON(http.StatusOK, resp)
