@@ -22,3 +22,4 @@ import:
     - color
 - package: golang.org/x/crypto/bcrypt
 - package: gopkg.in/go-playground/validator.v9
+- package: github.com/dgrijalva/jwt-go

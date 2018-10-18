@@ -36,6 +36,12 @@ func main() {
 			EnvVar: "DATABASE_FILE",
 		},
 		cli.StringFlag{
+			Name:   "security-file, sf",
+			Value:  "",
+			Usage:  "Security configuration",
+			EnvVar: "SECURITY_FILE",
+		},
+		cli.StringFlag{
 			Name:   "ssl-cert",
 			Value:  "",
 			Usage:  "Define SSL certificate to accept HTTPS requests",

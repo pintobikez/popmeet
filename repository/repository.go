@@ -8,7 +8,7 @@ type Repository interface {
 	Health() error
 	// User - Interests
 	UpdateUserInterests(interests []*models.Interest, id int64) error
-	GetAllInterestByUserId(id int64) ([]*models.Interest, error)
+	GetAllInterestByUserProfileId(id int64) ([]*models.Interest, error)
 	// Interest methods
 	FindInterestById(id int64) (*models.Interest, error)
 	GetAllInterests() ([]*models.Interest, error)
@@ -18,8 +18,8 @@ type Repository interface {
 	FindUserById(id int64) (*models.User, error)
 	FindUserByEmail(email string) (*models.User, error)
 	// User profile methods
-	InsertUserPofile(u *models.UserProfile, id int64) error
-	UpdateUserPofile(u *models.UserProfile) error
+	InsertUserProfile(u *models.UserProfile, id int64) error
+	UpdateUserProfile(u *models.UserProfile) error
 	FindUserProfileByUserId(id int64) (*models.UserProfile, error)
 	// Languages
 	FindLanguageById(id int64) (*models.Language, error)

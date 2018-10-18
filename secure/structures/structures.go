@@ -9,6 +9,6 @@ type TokenManagerI interface {
 
 type TokenClaims struct {
 	Email string `json:"email"`
-	ID    string `json:"id"`
+	ID    int64  `json:"id"`
 	jwt.StandardClaims
 }

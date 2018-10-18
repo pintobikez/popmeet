@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS `event_users` (
 
 CREATE TABLE IF NOT EXISTS `login_provider` (
   `id` int(2) unsigned NOT NULL AUTO_INCREMENT,
-  `provider_name` varchar(255) NOT NULL,
+  `name` varchar(255) NOT NULL,
   `web_clientid` varchar(255) NOT NULL,
   `web_secret` varchar(255) NOT NULL,
   `android_clientid` varchar(255) NOT NULL,
@@ -74,9 +74,9 @@ CREATE TABLE IF NOT EXISTS `interest` (
 
 CREATE TABLE IF NOT EXISTS `users_profile_interests` (
   `fk_interest` int(11) unsigned NOT NULL,
-  `fk_user` int(11) unsigned NOT NULL,
+  `fk_user_profile` int(11) unsigned NOT NULL,
   FOREIGN KEY (`fk_interest`) REFERENCES interest(`id`) ON UPDATE CASCADE ON DELETE RESTRICT,
-  FOREIGN KEY (`fk_user`) REFERENCES user(`id`) ON UPDATE CASCADE ON DELETE RESTRICT
+  FOREIGN KEY (`fk_user_profile`) REFERENCES user_profile(`id`) ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 	CREATE TABLE IF NOT EXISTS `user_profile` (

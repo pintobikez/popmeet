@@ -63,7 +63,7 @@ func (r *Client) InsertUser(u *models.User) error {
 		return fmt.Errorf("Error in insert user prepared statement: %s", err.Error())
 	}
 
-	res, err := stmt.Exec(u.Name, u.Email)
+	res, err := stmt.Exec(u.Email, u.Name)
 	defer stmt.Close()
 
 	if err != nil {
@@ -91,12 +91,12 @@ func (r *Client) UpdateUser(u *models.User) error {
 	}
 	defer r.deferRollback()
 
-	stmt, err := r.tx.Prepare("UPDATE `user` SET (email,name,updated_at) VALUES (?,?,now()) WHERE id=?")
+	stmt, err := r.tx.Prepare("UPDATE `user` SET email=?,name=?,updated_at=now() WHERE id=?")
 	if err != nil {
 		return fmt.Errorf("Error in update user prepared statement: %s", err.Error())
 	}
 
-	res, err := stmt.Exec(u.Name, u.Email, u.ID)
+	_, err = stmt.Exec(u.Name, u.Email, u.ID)
 	defer stmt.Close()
 
 	if err != nil {
@@ -151,16 +151,16 @@ func (r *Client) FindUserByEmail(email string) (*models.User, error) {
 	var found bool
 	resp := &models.User{}
 
-	err := r.db.QueryRow("SELECT IF(COUNT(*),'true','false') FROM user WHERE id=? and active=1", id).Scan(&found)
+	err := r.db.QueryRow("SELECT IF(COUNT(*),'true','false') FROM user WHERE email=? and active=1", email).Scan(&found)
 	if err != nil {
 		return resp, err
 	}
 
 	if !found {
-		return resp, fmt.Errorf("User with id %d not found", id)
+		return resp, fmt.Errorf("User with email %s not found", email)
 	}
 
-	err = r.db.QueryRow("SELECT id, email, name, created_at, updated_at, active FROM user WHERE id=?", id).Scan(&resp.ID, &resp.Email, &resp.Name, &resp.CreatedAt, &resp.UpdatedAt, &resp.Active)
+	err = r.db.QueryRow("SELECT id, email, name, created_at, updated_at, active FROM user WHERE email=?", email).Scan(&resp.ID, &resp.Email, &resp.Name, &resp.CreatedAt, &resp.UpdatedAt, &resp.Active)
 	if err != nil {
 		return resp, err
 	}
@@ -193,7 +193,7 @@ func (r *Client) InsertUserProfile(u *models.UserProfile, id int64) error {
 
 	//Update User Interests
 	if u.Interests != nil {
-		if err = r.UpdateUserInterests(u.Interests, id); err != nil {
+		if err = r.UpdateUserInterests(u.Interests, u.ID); err != nil {
 			return err
 		}
 	}
@@ -207,12 +207,12 @@ func (r *Client) UpdateUserProfile(u *models.UserProfile) error {
 	var stmt *sql.Stmt
 
 	if r.tx != nil {
-		stmt, err = r.tx.Prepare("UPDATE `user_profile` SET (language,sex,age_range,updated_at) VALUES (?,?,?,now()) WHERE id=?")
+		stmt, err = r.tx.Prepare("UPDATE `user_profile` SET language=?,sex=?,age_range=?,updated_at=now() WHERE id=?")
 	} else {
-		stmt, err = r.db.Prepare("UPDATE `user_profile` SET (language,sex,age_range,updated_at) VALUES (?,?,?,now()) WHERE id=?")
+		stmt, err = r.db.Prepare("UPDATE `user_profile` SET language=?,sex=?,age_range=?,updated_at=now() WHERE id=?")
 	}
 
-	res, err := stmt.Exec(u.Language.ID, u.Sex, u.AgeRange)
+	_, err = stmt.Exec(u.Language.ID, u.Sex, u.AgeRange)
 	defer stmt.Close()
 
 	if err != nil {
@@ -220,7 +220,7 @@ func (r *Client) UpdateUserProfile(u *models.UserProfile) error {
 	}
 
 	//Update User Interests
-	if err = r.UpdateUserInterests(u.Interests, id); err != nil {
+	if err = r.UpdateUserInterests(u.Interests, u.ID); err != nil {
 		return err
 	}
 
@@ -252,7 +252,7 @@ func (r *Client) FindUserProfileByUserId(id int64) (*models.UserProfile, error) 
 		return resp, err
 	}
 
-	resp.Interests, err = r.GetAllInterestByUserId(id)
+	resp.Interests, err = r.GetAllInterestByUserProfileId(id)
 	if err != nil {
 		return resp, err
 	}
@@ -304,16 +304,16 @@ func (r *Client) UpdateUserSecurity(u *models.UserSecurity) error {
 	var stmt *sql.Stmt
 
 	if r.tx != nil {
-		stmt, err := r.tx.Prepare("UPDATE `user_security` SET (fk_login_provider,hash,updated_at) VALUES (?,?,now()) WHERE id=?")
+		stmt, err = r.tx.Prepare("UPDATE `user_security` SET fk_login_provider=?,hash=?,updated_at=now() WHERE id=?")
 	} else {
-		stmt, err := r.db.Prepare("UPDATE `user_security` SET (fk_login_provider,hash,updated_at) VALUES (?,?,now()) WHERE id=?")
+		stmt, err = r.db.Prepare("UPDATE `user_security` SET fk_login_provider=?,hash=?,updated_at=now() WHERE id=?")
 	}
 
 	if err != nil {
 		return fmt.Errorf("Error in update user security prepared statement: %s", err.Error())
 	}
 
-	res, err := stmt.Exec(u.Provider.ID, u.Hash, u.ID)
+	_, err = stmt.Exec(u.Provider.ID, u.Hash, u.ID)
 	defer stmt.Close()
 
 	if err != nil {
@@ -326,12 +326,12 @@ func (r *Client) UpdateUserSecurity(u *models.UserSecurity) error {
 // UpdateLoginData Updates the Data for the login stats
 func (r *Client) UpdateLoginData(u *models.UserSecurity) error {
 
-	stmt, err := r.db.Prepare("UPDATE `user_security` SET (last_login,last_machine) VALUES (now(),?) WHERE id=?")
+	stmt, err := r.db.Prepare("UPDATE `user_security` SET last_login_date=now(),last_machine=? WHERE id=?")
 	if err != nil {
 		return fmt.Errorf("Error in update user security prepared statement: %s", err.Error())
 	}
 
-	res, err := stmt.Exec(u.LastMachine, u.ID)
+	_, err = stmt.Exec(u.LastMachine, u.ID)
 	defer stmt.Close()
 
 	if err != nil {
@@ -345,7 +345,7 @@ func (r *Client) UpdateLoginData(u *models.UserSecurity) error {
 func (r *Client) FindSecurityInfoByUserId(id int64) (*models.UserSecurity, error) {
 	var found bool
 	var fkProvider int64
-	resp := &models.UserSecurity{}
+	resp := &models.UserSecurity{Provider: &models.LoginProvider{}}
 
 	err := r.db.QueryRow("SELECT IF(COUNT(*),'true','false') FROM user_security WHERE fk_user=?", id).Scan(&found)
 	if err != nil {
@@ -428,18 +428,18 @@ func (r *Client) UpdateUserInterests(interests []*models.Interest, id int64) err
 	var stmti *sql.Stmt
 
 	if r.tx != nil {
-		stmtd, err := r.tx.Prepare("DELETE FROM `users_profile_interests` WHERE fk_user=?")
-		stmti, err := r.tx.Prepare("INSERT INTO `users_profile_interests` VALUES (?,?)")
+		stmtd, err = r.tx.Prepare("DELETE FROM `users_profile_interests` WHERE fk_user=?")
+		stmti, err = r.tx.Prepare("INSERT INTO `users_profile_interests` VALUES (?,?)")
 	} else {
-		stmtd, err := r.db.Prepare("DELETE FROM `users_profile_interests` WHERE fk_user=?")
-		stmti, err := r.db.Prepare("INSERT INTO `users_profile_interests` VALUES (?,?)")
+		stmtd, err = r.db.Prepare("DELETE FROM `users_profile_interests` WHERE fk_user=?")
+		stmti, err = r.db.Prepare("INSERT INTO `users_profile_interests` VALUES (?,?)")
 	}
 
 	if err != nil {
 		return fmt.Errorf("Error in deleting user interests prepared statement: %s", err.Error())
 	}
 
-	res, err := stmtd.Exec(id)
+	_, err = stmtd.Exec(id)
 	defer stmtd.Close()
 	if err != nil {
 		return fmt.Errorf("Error in deleting user interests for userID %d : %s", id, err.Error())
@@ -447,7 +447,7 @@ func (r *Client) UpdateUserInterests(interests []*models.Interest, id int64) err
 
 	if interests != nil && len(interests) > 0 {
 		for _, i := range interests {
-			res, err := stmti.Exec(i.ID, id)
+			_, err = stmti.Exec(i.ID, id)
 			defer stmti.Close()
 			if err != nil {
 				return fmt.Errorf("Error in inserting user interests for userID %d : %s", id, err.Error())
@@ -459,12 +459,12 @@ func (r *Client) UpdateUserInterests(interests []*models.Interest, id int64) err
 	return nil
 }
 
-// GetAllInterests Gets all interests
-func (r *Client) GetAllInterestByUserId(id int64) ([]*models.Interest, error) {
+// GetAllInterestByUserProfileId Gets all interests of a given user
+func (r *Client) GetAllInterestByUserProfileId(id int64) ([]*models.Interest, error) {
 
 	var resp []*models.Interest
 
-	rows, err := r.db.Query("SELECT int.id, int.name from users_profile_interests as upi inner join interest as int on upi.fk_interest=int.id WHERE upi.fk_user=?", id)
+	rows, err := r.db.Query("SELECT int.id, int.name from users_profile_interests as upi inner join interest as int on upi.fk_interest=int.id WHERE upi.fk_user_profile=?", id)
 	if err != nil {
 		return resp, err
 	}

@@ -10,6 +10,7 @@ import (
 	uti "github.com/pintobikez/popmeet/config"
 	cnfs "github.com/pintobikez/popmeet/config/structures"
 	er "github.com/pintobikez/popmeet/errors"
+	mwl "github.com/pintobikez/popmeet/middleware"
 	rep "github.com/pintobikez/popmeet/repository"
 	mysql "github.com/pintobikez/popmeet/repository/mysql"
 	"github.com/pintobikez/popmeet/secure"
@@ -76,7 +77,7 @@ func Handler(c *cli.Context) error {
 		e.Logger.Fatal(err)
 	}
 
-	repo, err = mysql.New(dbConfig)
+	repo, err := mysql.New(dbConfig)
 	if err != nil {
 		e.Logger.Fatal(err)
 	}
@@ -89,25 +90,26 @@ func Handler(c *cli.Context) error {
 	defer repo.Disconnect()
 
 	//loads security config
-	secCnf := &cnfs.SecurityConfig{}
+	secCnf := new(cnfs.SecurityConfig)
 	err = uti.LoadConfigFile(c.String("security-file"), secCnf)
 	if err != nil {
 		e.Logger.Fatal(err)
 	}
-	securC := &secure.TokenManager{secCnf}
+	tknm := &secure.TokenManager{secCnf}
 
 	// Routes => healh
 	e.GET("/health", healthStatus(repo), mw.CORSWithConfig(corsGET))
 
 	// Routes => interests api
 	apiInterest.New(repo)
-	e.GET("/interest", apiInterest.GetAllInterest(), mw.CORSWithConfig(corsGET))
-	e.GET("/interest/:id", apiInterest.GetInterest(), mw.CORSWithConfig(corsGET))
+	e.GET("/interest", apiInterest.GetAllInterest(), mwl.Authorization(tknm), mw.CORSWithConfig(corsGET))
+	e.GET("/interest/:id", apiInterest.GetInterest(), mwl.Authorization(tknm), mw.CORSWithConfig(corsGET))
 
 	// Routes => users api
-	apiUser.New(repo)
-	e.PUT("/user", apiUser.PutUser(), mw.CORSWithConfig(corsPUT))
-	e.POST("/user", apiUser.PostUser(), mw.CORSWithConfig(corsPOST))
+	apiUser.New(repo, tknm)
+	e.PUT("/register", apiUser.PutUser(), mw.CORSWithConfig(corsPUT))
+	e.POST("/user", apiUser.PostUser(), mwl.Authorization(tknm), mw.CORSWithConfig(corsPOST))
+	e.POST("/login", apiUser.LoginUser(), mw.CORSWithConfig(corsPOST))
 
 	// Start server
 	colorer := color.New()
